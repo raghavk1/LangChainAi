@@ -1,0 +1,31 @@
+{
+  "name": "langgraph-agent",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@huggingface/hub": "^2.2.0",
+    "@huggingface/inference": "^2.8.1",
+    "@huggingface/mcp-client": "^0.2.0",
+    "@langchain/community": "^0.3.45",
+    "@langchain/core": "^0.3.57",
+    "@langchain/google-genai": "^0.2.10",
+    "@langchain/langgraph": "^0.3.0",
+    "@langchain/openai": "^0.5.12",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "langchain": "^0.3.27",
+    "nodemon": "^3.1.10",
+    "openai": "^4.104.0",
+    "remove-markdown": "^0.6.2"
+  }
+}

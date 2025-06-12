@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chat with AI</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #fdf6e3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 40px;
+      }
+
+      h1 {
+        margin-bottom: 20px;
+      }
+
+      #chat-box {
+        width: 80%;
+        max-width: 850px;
+        height: 300px;
+        overflow-y: auto;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .message {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 8px;
+        max-width: 80%;
+      }
+
+      .user {
+        background-color: #cce5ff;
+        align-self: flex-end;
+      }
+
+      .ai {
+        background-color: #ffeeba;
+        align-self: flex-start;
+      }
+
+      #loader {
+        display: none;
+        margin-bottom: 15px;
+      }
+
+      .spinner {
+        border: 6px solid #f3f3f3;
+        border-top: 6px solid #3498db;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      #input-area {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      input[type="text"] {
+        padding: 10px;
+        width: 300px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+      }
+
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        background-color: #4caf50;
+        color: white;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+      .disabled-btn {
+        background-color: #ccc !important;
+        cursor: not-allowed;
+        opacity: 0.6;
+        transition: all 0.3s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>AI Chat Interface</h1>
+
+    <div id="input-area">
+      <input type="text" id="userInput" placeholder="Ask something..." />
+      <button id="sendBtn" onclick="askGemini()">Send</button>
+    </div>
+
+    <div id="chat-box"></div>
+
+    <div id="loader"><div class="spinner"></div></div>
+
+    <script>
+      const inputField = document.getElementById("userInput");
+      const chatBox = document.getElementById("chat-box");
+      const loader = document.getElementById("loader");
+
+      // Handle Enter key
+      inputField.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          askGemini();
+        }
+      });
+
+      async function askGemini() {
+        const userMessage = inputField.value.trim();
+        if (!userMessage) return;
+
+        // Show user message
+        const sendBtn = document.getElementById("sendBtn");
+        sendBtn.disabled = true;
+        sendBtn.classList.add("disabled-btn");
+
+        const userDiv = document.createElement("div");
+        userDiv.className = "message user";
+        userDiv.innerText = "🧑‍💻 " + userMessage;
+        chatBox.appendChild(userDiv);
+        inputField.value = "";
+        loader.style.display = "block";
+        scrollToBottom();
+
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: userMessage }),
+          });
+
+          const data = await res.json();
+          const aiReply = data.reply || "No response";
+
+          const aiDiv = document.createElement("div");
+          aiDiv.className = "message ai";
+          chatBox.appendChild(aiDiv);
+
+          // ✅ Only apply typing effect (no innerText)
+          await typeEffect(aiDiv, "🤖 " + aiReply);
+        } catch (error) {
+          const errorDiv = document.createElement("div");
+          errorDiv.className = "message ai";
+          errorDiv.innerText = "⚠️ Error: Could not fetch response.";
+          chatBox.appendChild(errorDiv);
+        } finally {
+          loader.style.display = "none";
+          scrollToBottom();
+          sendBtn.disabled = false;
+          sendBtn.classList.remove("disabled-btn");
+        }
+
+        // Typing effect function
+       async function typeEffect(element, text, delay = 15) {
+          let i = 0;
+          function typing() {
+            if (i < text.length) {
+              element.innerHTML += text.charAt(i);
+              i++;
+              setTimeout(typing, delay);
+            }
+          }
+          typing();
+        }
+      }
+
+      // Scroll to the very bottom of the chat
+      function scrollToBottom() {
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    </script>
+  </body>
+</html>
