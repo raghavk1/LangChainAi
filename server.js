@@ -1,7 +1,10 @@
 import express from "express";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage } from "@langchain/core/messages";
-import { HuggingFaceInference } from "@langchain/community/llms/hf";
+import { tool } from "@langchain/core/tools";
+import { z } from "zod";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
+
 import { HfInference } from "@huggingface/inference";
 import removeMarkdown from "remove-markdown";
 
@@ -24,65 +27,41 @@ app.use(express.static(path.join(__dirname, "public")));
 
 async function main() {
   const model = new ChatGoogleGenerativeAI({
-    model: "gemini-2.0-flash", // or gemini-2.0-flash if that's what you're using
+    model: "gemini-2.5-flash-preview-05-20",
     apiKey: process.env.GEMINI_API_KEY,
   });
-  const hfModel = new HuggingFaceInference({
-    model: "Helsinki-NLP/opus-mt-en-hi", // Simplified model
-    apiKey: process.env.HUGGINGFACE_API_KEY,
+
+
+
+  // Weather Tool
+  const weatherTool = new RequestsGetTool();
+
+  // Create agent with tools
+  const agent = await createReactAgent({
+    llm: model,
+    tools: [weatherTool],
   });
 
-  //predictor function
-  //   const res = await model.predict('probability of getting a 5 when rolled 2 dices')
-  //   console.log('result is',res)
-
-  const tools = [new RequestsGetTool()];
-
-  const executor = await initializeAgentExecutorWithOptions(tools, model, {
-    agentType: "zero-shot-react-description",
-    verbose: true,
-  });
-
+  // Route
   app.post("/api/chat", async (req, res) => {
     const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: "No message provided" });
-    }
+    if (!message) return res.status(400).json({ error: "No message provided" });
 
     try {
-      if (
-        message.toLowerCase().includes("weather") ||
-        message.includes("http")
-      ) {
-        const result = await executor.call({ input: message });
-        result = removeMarkdown(result)
-        return res.json({ reply: result.output });
-      } else if (message.toLowerCase().includes("translate")) {
-        const textToTranslate = message.replace(/translate/i, "").trim();
-        const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
-
-        const data = await hf.translation({
-          model: "Helsinki-NLP/opus-mt-en-hi",
-          inputs: textToTranslate,
-        });
-        var translatedText = removeMarkdown(data.translation_text);
-        return res.json({ reply: translatedText });
-
-      } else {
-        const messages = [new HumanMessage(message)];
-        const response = await model.invoke(messages);
-        
-        return res.json({ reply: removeMarkdown(response.content) });
-      }
+      const result = await agent.invoke({
+        messages: [{ role: "user", content: message }],
+      });
+      const aiMessage = result.messages.find(msg => msg._getType?.() === "ai");
+      const reply = removeMarkdown(aiMessage.content.trim());
+      return res.json({ reply });
     } catch (err) {
-      console.error("AI Error:", err);
+      console.error("Agent Error:", err);
       return res.status(500).json({ error: "Something went wrong" });
     }
   });
 
   app.listen(PORT, () =>
-    console.log(`Server running at http://localhost:${PORT}`)
+    console.log(`🔥 Gemini-powered agent running at http://localhost:${PORT}`)
   );
 }
 
