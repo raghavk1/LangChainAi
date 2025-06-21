@@ -4,6 +4,8 @@ import { HumanMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { ChatMessageHistory } from "langchain/stores/message/in_memory";
+import { BufferMemory } from "langchain/memory";
 
 import { HfInference } from "@huggingface/inference";
 import removeMarkdown from "remove-markdown";
@@ -36,28 +38,47 @@ async function main() {
   // Weather Tool
   const weatherTool = new RequestsGetTool();
 
+  const memory = new BufferMemory({
+    chatHistory: new ChatMessageHistory(), // Stores messages in RAM
+    returnMessages: true, // Return whole message list to agent
+    memoryKey: "chat_history"
+  });
+
   // Create agent with tools
   const agent = await createReactAgent({
     llm: model,
     tools: [weatherTool],
+    systemInstructions: "You are a helpful assistant.", // 🧠 Prompt prefix
+    verbose: true,                // 🪵 Logs what's happening inside
+    callbacks: [],                // 📞 LangChain callbacks (for streaming, tracing)
+    maxIterations: 5,             // 🔁 Tool use + reasoning loop limit
+    memory: memory,               // 🧠 You can attach memory (optional)
   });
 
   // Route
   app.post("/api/chat", async (req, res) => {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: "No message provided" });
-
-    try {
-      const result = await agent.invoke({
-        messages: [{ role: "user", content: message }],
-      });
-      const aiMessage = result.messages.find(msg => msg._getType?.() === "ai");
-      const reply = removeMarkdown(aiMessage.content.trim());
-      return res.json({ reply });
-    } catch (err) {
-      console.error("Agent Error:", err);
-      return res.status(500).json({ error: "Something went wrong" });
-    }
+  
+    // Store user's message:
+    await memory.saveContext({ input: message }, {});
+  
+    // Get full chat history:
+    const chat_history = await memory.loadMemoryVariables();
+    const history = chat_history.chat_history || [];
+  
+    // Run agent with full history:
+    const result = await agent.invoke({
+      messages: [
+        ...history,
+        { role: "user", content: message }
+      ],
+    });
+  
+    // Store assistant reply:
+    const aiMessage = result.messages.find(msg => msg._getType?.() === "ai");
+    await memory.saveContext({}, { output: aiMessage.content });
+  
+    return res.json({ reply: aiMessage.content });
   });
 
   app.listen(PORT, () =>
