@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon complete.js"
   },
   "keywords": [],
   "author": "",
@@ -21,8 +21,10 @@
     "@langchain/google-genai": "^0.2.10",
     "@langchain/langgraph": "^0.3.0",
     "@langchain/openai": "^0.5.12",
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-fileupload": "^1.5.1",
     "langchain": "^0.3.27",
     "nodemon": "^3.1.10",
     "openai": "^4.104.0",

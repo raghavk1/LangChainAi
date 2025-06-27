@@ -105,15 +105,50 @@
         opacity: 0.6;
         transition: all 0.3s ease;
       }
+      .input-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+
+      .input-wrapper input[type="text"] {
+        padding-right: 30px; /* Space for the plus icon */
+      }
+
+      .plus-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        font-size: 18px;
+        color: #4caf50;
+        transition: color 0.3s;
+      }
+
+      .plus-icon:hover {
+        color: #45a049;
+      }
     </style>
   </head>
   <body>
     <h1>AI Chat Interface</h1>
-
     <div id="input-area">
-      <input type="text" id="userInput" placeholder="Ask something..." />
+      <div class="input-wrapper">
+        <input type="text" id="userInput" placeholder="Ask something..." />
+        <span class="plus-icon" onclick="triggerFileInput()">➕</span>
+        <input
+          type="file"
+          id="hiddenFileInput"
+          style="display: none"
+          onchange="uploadFile()"
+        />
+      </div>
       <button id="sendBtn" onclick="askGemini()">Send</button>
     </div>
+    <!-- <div id="input-area">
+      <input type="text" id="userInput" placeholder="Ask something..." />
+      <button id="sendBtn" onclick="askGemini()">Send</button>
+    </div> -->
 
     <div id="chat-box"></div>
 
@@ -178,7 +213,7 @@
         }
 
         // Typing effect function
-       async function typeEffect(element, text, delay = 15) {
+        async function typeEffect(element, text, delay = 15) {
           let i = 0;
           function typing() {
             if (i < text.length) {
@@ -194,6 +229,27 @@
       // Scroll to the very bottom of the chat
       function scrollToBottom() {
         chatBox.scrollTop = chatBox.scrollHeight;
+      }
+      function triggerFileInput() {
+        document.getElementById("hiddenFileInput").click();
+      }
+
+      async function uploadFile() {
+        const fileInput = document.getElementById("hiddenFileInput");
+        if (!fileInput.files[0]) return;
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const text = await res.text();
+        alert(text);
+        // Optional: clear the file input
+        fileInput.value = "";
       }
     </script>
   </body>
