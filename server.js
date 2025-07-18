@@ -15,8 +15,14 @@ import { RequestsGetTool } from "langchain/tools";
 import { initializeAgentExecutorWithOptions } from "langchain/agents";
 import path from "path";
 import { fileURLToPath } from "url";
+import multer from "multer";
+import fs from "fs";
+import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
+import { TextLoader } from "langchain/document_loaders/fs/text";
 
 dotenv.config();
+
+const upload = multer({ dest: "uploads/" }); // file stored temporarily
 
 const app = express();
 const PORT = 3000;
@@ -33,58 +39,72 @@ async function main() {
     apiKey: process.env.GEMINI_API_KEY,
   });
 
-
-
   // Weather Tool
   const weatherTool = new RequestsGetTool();
 
   const memory = new BufferMemory({
-    chatHistory: new ChatMessageHistory(), // Stores messages in RAM
-    returnMessages: true, // Return whole message list to agent
-    memoryKey: "chat_history"
+    chatHistory: new ChatMessageHistory(),
+    returnMessages: true,
+    memoryKey: "chat_history",
   });
 
-  // Create agent with tools
+  // Create LangChain agent
   const agent = await createReactAgent({
     llm: model,
     tools: [weatherTool],
-    systemInstructions: "You are a helpful assistant.", // 🧠 Prompt prefix
-    verbose: true,                // 🪵 Logs what's happening inside
-    callbacks: [],                // 📞 LangChain callbacks (for streaming, tracing)
-    maxIterations: 5,             // 🔁 Tool use + reasoning loop limit
-    memory: memory,               // 🧠 You can attach memory (optional)
+    systemInstructions: "You are a helpful assistant.",
+    verbose: true,
+    callbacks: [],
+    maxIterations: 5,
+    memory: memory,
   });
 
-  // Route
+  // Chat endpoint
   app.post("/api/chat", async (req, res) => {
     const { message } = req.body;
-  
-    // Store user's message:
+
     await memory.saveContext({ input: message }, {});
-  
-    // Get full chat history:
     const chat_history = await memory.loadMemoryVariables();
     const history = chat_history.chat_history || [];
-  
-    // Run agent with full history:
+
     const result = await agent.invoke({
       messages: [
         ...history,
-        { role: "user", content: message }
+        { role: "user", content: message },
       ],
     });
-  
-    // Store assistant reply:
+
     const aiMessage = result.messages.find(msg => msg._getType?.() === "ai");
     await memory.saveContext({}, { output: aiMessage.content });
-  
+
     return res.json({ reply: aiMessage.content });
   });
+
+  // 📥 Upload endpoint
 
   app.listen(PORT, () =>
     console.log(`🔥 Gemini-powered agent running at http://localhost:${PORT}`)
   );
 }
+app.post("/api/upload", upload.single("file"), async (req, res) => {
+  console.log("📥 File upload received:", req.file);
+  try {
+    const filePath = req.file.path;
+
+    // use TextLoader instead of PDFLoader
+    const loader = new TextLoader(filePath);
+    const docs = await loader.load();
+
+    console.log("✅ Text file content:", docs.slice(0, 1));
+
+    fs.unlinkSync(filePath); // optional cleanup
+
+    return res.status(200).send("✅ File uploaded and processed successfully.");
+  } catch (error) {
+    console.error("❌ File upload error:", error);
+    return res.status(500).send("❌ Failed to process file.");
+  }
+});
 
 main().catch((err) => {
   console.error("Server failed to start:", err);
