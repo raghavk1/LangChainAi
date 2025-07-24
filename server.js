@@ -58,7 +58,6 @@ async function main() {
   // Route
   app.post("/api/chat", async (req, res) => {
     const { message } = req.body;
-  
     // Store user's message:
     await memory.saveContext({ input: message }, {});
   
